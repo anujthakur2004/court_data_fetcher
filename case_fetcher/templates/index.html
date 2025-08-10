@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Delhi High Court Case Search</title>
+    <style>
+        .error { color: red; margin-bottom: 15px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: inline-block; width: 120px; }
+        .captcha-box { 
+            margin: 20px 0; 
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 5px;
+        }
+        .captcha-image {
+            font-size: 24px;
+            letter-spacing: 3px;
+            font-weight: bold;
+            margin: 10px 0;
+            padding: 10px;
+            background: #e0e0e0;
+        }
+    </style>
+</head>
+<body>
+    <h2>Search Case Status</h2>
+
+    {% if error %}
+    <div class="error">{{ error }}</div>
+    {% endif %}
+
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="form-group">
+            <label for="case_type">Case Type:</label>
+            <select name="case_type" id="case_type" required>
+                <option value="">Select</option>
+                {% for type in case_types %}
+                    <option value="{{ type }}">{{ type }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="case_number">Case Number:</label>
+            <input type="text" name="case_number" id="case_number" required>
+        </div>
+
+        <div class="form-group">
+            <label for="case_year">Case Year:</label>
+            <select name="case_year" id="case_year" required>
+                <option value="">Select</option>
+                {% for year in years %}
+                    <option value="{{ year }}">{{ year }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        {% if captcha_image %}
+        <div class="captcha-box">
+            <label>CAPTCHA Verification:</label>
+            <img src="{{ captcha_image }}" alt="CAPTCHA">
+            <div class="form-group">
+                <label for="captcha_value">Enter CAPTCHA:</label>
+                <input type="text" name="captcha_value" id="captcha_value" required>
+            </div>
+        </div>
+        {% elif captcha_text %}
+        <div class="captcha-box">
+            <label>CAPTCHA Verification:</label>
+            <div class="captcha-text">{{ captcha_text }}</div>
+            <div class="form-group">
+                <label for="captcha_value">Enter CAPTCHA:</label>
+                <input type="text" name="captcha_value" id="captcha_value" required>
+            </div>
+        </div>
+        {% endif %}
+
+        <button type="submit">Fetch Case Status</button>
+    </form>
+</body>
+</html>

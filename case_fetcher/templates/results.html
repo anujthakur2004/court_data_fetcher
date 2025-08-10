@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Case Status Results</title>
+</head>
+<body>
+    <h2>Case Details</h2>
+
+{% if case_data.table %}
+    <table border="1">
+        {% for row in case_data.table %}
+            <tr>
+                {% for col in row %}
+                    <td>{{ col }}</td>
+                {% endfor %}
+            </tr>
+        {% endfor %}
+    </table>
+{% else %}
+    <p>{{ case_data.error }}</p>
+{% endif %}
+
+<a href="{% url 'fetch_case' %}">Search Another Case</a>
+
+
+</body>
+</html>
