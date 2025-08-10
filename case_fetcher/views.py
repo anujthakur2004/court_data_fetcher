@@ -38,7 +38,7 @@ def fetch_case_view(request):
             # Get CAPTCHA from Delhi High Court website
             captcha_data = asyncio.run(get_delhi_hc_captcha())
             
-            # Prepare context based on CAPTCHA type
+
             context = {
                 "case_types": CASE_TYPES,
                 "years": YEARS,
