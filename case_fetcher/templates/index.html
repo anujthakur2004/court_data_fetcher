@@ -5,32 +5,29 @@
 </head>
 <body>
     <h2>Search Case</h2>
-    <form method="post">
-        {% csrf_token %}
-        <input type="hidden" name="session_id" value="{{ session_id }}">
+    <form method="POST">
+    {% csrf_token %}
+    <input type="hidden" name="session_id" value="{{ session_id }}">
+    <label>Case Type:</label>
+    <select name="case_type">
+        {% for ct in case_types %}
+        <option value="{{ ct }}">{{ ct }}</option>
+        {% endfor %}
+    </select>
+    <label>Case Number:</label>
+    <input type="text" name="case_number" required>
+    <label>Case Year:</label>
+    <select name="case_year">
+        {% for y in years %}
+        <option value="{{ y }}">{{ y }}</option>
+        {% endfor %}
+    </select>
+    <div>
+        <img src="{{ captcha_img }}" alt="Captcha">
+        <input type="text" name="captcha_value" placeholder="Enter captcha">
+    </div>
+    <button type="submit">Submit</button>
+</form>
 
-        <label>Case Type:</label>
-        <select name="case_type" required>
-            {% for ct in case_types %}
-                <option value="{{ ct }}">{{ ct }}</option>
-            {% endfor %}
-        </select><br><br>
-
-        <label>Case Number:</label>
-        <input type="text" name="case_number" required><br><br>
-
-        <label>Case Year:</label>
-        <select name="case_year" required>
-            {% for y in years %}
-                <option value="{{ y }}">{{ y }}</option>
-            {% endfor %}
-        </select><br><br>
-
-        <label>Captcha:</label><br>
-        <img src="data:image/png;base64,{{ captcha_img }}" alt="Captcha"><br>
-        <input type="text" name="captcha_value" placeholder="Enter captcha" required><br><br>
-
-        <button type="submit">Search</button>
-    </form>
 </body>
 </html>
