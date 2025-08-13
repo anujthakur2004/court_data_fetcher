@@ -5,26 +5,19 @@
 </head>
 <body>
     <h2>Case Details</h2>
-
-    {% if case_data.error %}
-        <p>{{ case_data.error }}</p>
-    {% else %}
-        <table border="1">
-            <tr>
-                {% for h in case_data.headers %}
-                    <th>{{ h }}</th>
-                {% endfor %}
-            </tr>
-            {% for row in case_data.rows %}
+    {% if case_data.table %}
+        <table border="1" cellpadding="5">
+            {% for row in case_data.table %}
                 <tr>
-                    {% for cell in row %}
-                        <td>{{ cell }}</td>
+                    {% for col in row %}
+                        <td>{{ col }}</td>
                     {% endfor %}
                 </tr>
             {% endfor %}
         </table>
+    {% else %}
+        <p>{{ case_data.error }}</p>
     {% endif %}
-
     <br>
     <a href="/">Search Another Case</a>
 </body>

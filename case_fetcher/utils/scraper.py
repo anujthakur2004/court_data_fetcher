@@ -1,87 +1,98 @@
+import asyncio
 import base64
 from playwright.async_api import async_playwright
+from bs4 import BeautifulSoup
 
-# Keep sessions alive between GET and POST
-sessions = {}
+_browser = None
+_page = None
+_frame = None
+_pw = None
 
 async def init_session():
-    """Launch browser, get captcha image, return session_id + captcha"""
-    p = await async_playwright().start()
-    browser = await p.chromium.launch(headless=False)
-    page = await browser.new_page()
+    """
+    Start browser session, get captcha image, keep iframe alive.
+    """
+    global _browser, _page, _frame, _pw
 
-    await page.goto("https://delhihighcourt.nic.in/app/get-case-type-status", wait_until="domcontentloaded")
+    _pw = await async_playwright().start()
+    _browser = await _pw.chromium.launch(headless=False)
+    _page = await _browser.new_page()
 
-    # Find iframe
-    form_frame = None
-    for f in page.frames:
+    url = "https://delhihighcourt.nic.in/app/get-case-type-status"
+    await _page.goto(url, wait_until="domcontentloaded")
+
+    # Get iframe
+    for f in _page.frames:
         if "get-case-type-status" in f.url:
-            form_frame = f
+            _frame = f
             break
-    if not form_frame:
-        raise Exception("Captcha form iframe not found.")
 
-    # Try text captcha first
-    captcha_text_el = await form_frame.query_selector("#captcha-code")
-    captcha_img_data = None
-    if captcha_text_el:
-        text_val = (await captcha_text_el.inner_text()).strip()
-        captcha_img_data = f"data:image/png;base64,{base64.b64encode(text_val.encode()).decode()}"
-    else:
-        # Image captcha
-        captcha_img_el = await form_frame.query_selector("img")
-        if not captcha_img_el:
-            raise Exception("Captcha image not found inside iframe.")
-        img_bytes = await captcha_img_el.screenshot()
-        captcha_img_data = f"data:image/png;base64,{base64.b64encode(img_bytes).decode()}"
+    if not _frame:
+        raise Exception("Form iframe not found.")
 
-    # Save session
-    session_id = str(len(sessions) + 1)
-    sessions[session_id] = {
-        "browser": browser,
-        "page": page,
-        "frame_url_pattern": "get-case-type-status"
-    }
-    return {"session_id": session_id, "captcha_img": captcha_img_data}
+    # Wait for captcha image
+    captcha_elem = await _frame.wait_for_selector(
+        "#captcha_image, #captcha-image, img",
+        timeout=20000,
+        state="visible"
+    )
+    if not captcha_elem:
+        raise Exception("Captcha image not found inside iframe.")
 
-async def submit_case(session_id, case_type, case_number, case_year, captcha_value):
-    """Re-find iframe, fill details, scrape results"""
-    sess = sessions.get(session_id)
-    if not sess:
-        return {"error": "Session expired or not found"}
+    try:
+        await captcha_elem.scroll_into_view_if_needed()
+        img_bytes = await captcha_elem.screenshot()
+    except:
+        src = await captcha_elem.get_attribute("src")
+        if src and src.startswith("data:image"):
+            img_bytes = base64.b64decode(src.split(",")[1])
+        else:
+            raise Exception("Could not capture captcha image.")
 
-    page = sess["page"]
-    form_frame = None
-    for f in page.frames:
-        if sess["frame_url_pattern"] in f.url:
-            form_frame = f
-            break
-    if not form_frame:
-        return {"error": "Form iframe not found on submit"}
+    captcha_b64 = base64.b64encode(img_bytes).decode()
 
-    await form_frame.select_option("#case_type", case_type)
-    await form_frame.fill("#case_number", str(case_number))
-    await form_frame.select_option("#case_year", str(case_year))
-    await form_frame.fill("#captchaInput", captcha_value)
+    return {"captcha_img": captcha_b64}
 
-    await form_frame.click("#search")
-    await form_frame.wait_for_selector("table", timeout=60000)
 
-    html = await form_frame.content()
-    await sess["browser"].close()
-    sessions.pop(session_id, None)
+async def submit_case_form(case_type, case_number, case_year, captcha_value):
+    """
+    Submit details in same browser session and fetch results.
+    """
+    global _frame, _browser, _pw
 
-    return parse_results(html)
+    if not _frame:
+        raise Exception("Invalid session ID")
+
+    await _frame.select_option("#case_type", case_type)
+    await _frame.fill("#case_number", case_number)
+    await _frame.select_option("#case_year", str(case_year))
+    await _frame.fill("#captchaInput", captcha_value)
+    await _frame.click("#search")
+
+    await _frame.wait_for_selector("table", timeout=20000)
+    html_content = await _frame.content()
+
+    # Close after fetch
+    await _browser.close()
+    await _pw.stop()
+    _frame = None
+    _browser = None
+    _pw = None
+
+    return parse_results(html_content)
+
 
 def parse_results(html):
-    from bs4 import BeautifulSoup
     soup = BeautifulSoup(html, "html.parser")
     table = soup.find("table")
     if not table:
-        return {"error": "No case data found"}
+        return {"error": "No case data found."}
+
+    headers = [th.get_text(strip=True) for th in table.find_all("th")]
     rows = []
-    for tr in table.find_all("tr"):
-        cells = [td.get_text(strip=True) for td in tr.find_all(["td", "th"])]
-        if cells:
-            rows.append(cells)
+    for tr in table.find_all("tr")[1:]:
+        cols = [td.get_text(strip=True) for td in tr.find_all("td")]
+        if cols:
+            rows.append(dict(zip(headers, cols)))
+
     return {"table": rows}
